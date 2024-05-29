@@ -33,7 +33,8 @@ vector<string> SplitIntoWords(const string& text) {
                 words.push_back(word);
                 word.clear();
             }
-        } else {
+        }
+        else {
             word += c;
         }
     }
@@ -60,8 +61,8 @@ public:
     void AddDocument(int document_id, const string& document) {
         const vector<string> words = SplitIntoWordsNoStop(document);
         map<int, double> words_freq;
-        const double word_TF = 1./words.size();
-        for(const string& word: words)
+        const double word_TF = 1. / words.size();
+        for (const string& word : words)
         {
             word_to_document_freqs_[word][document_id] += word_TF;
         }
@@ -73,9 +74,9 @@ public:
         auto matched_documents = FindAllDocuments(query_words);
 
         sort(matched_documents.begin(), matched_documents.end(),
-             [](const Document& lhs, const Document& rhs) {
-                 return lhs.relevance > rhs.relevance;
-             });
+            [](const Document& lhs, const Document& rhs) {
+                return lhs.relevance > rhs.relevance;
+            });
         if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
             matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
         }
@@ -102,17 +103,17 @@ private:
     }
 
     struct Query {
-      set<string> plus_words;
-      set<string> minus_words;
+        set<string> plus_words;
+        set<string> minus_words;
     };
-    
+
     Query ParseQuery(const string& text) const {
         Query query_words;
         for (const string& word : SplitIntoWordsNoStop(text)) {
-            if(word[0] == '-')
+            if (word[0] == '-')
             {
                 string stripped = word.substr(1);
-                if(!IsStopWord(stripped))
+                if (!IsStopWord(stripped))
                 {
                     query_words.minus_words.insert(stripped);
                 }
@@ -124,44 +125,55 @@ private:
     }
 
     vector<Document> FindAllDocuments(const Query& query_words) const {
-        vector<Document> matched_documents;
-        map<int, double> document_to_relevance;
-        double idf = 0;
-        for (const auto& word : query_words.plus_words) {
-            if(!word_to_document_freqs_.count(word))
-            {
-                continue;
-            }
-            for(const auto& doc: word_to_document_freqs_.at(word)) {
-                if(doc.second == 0)
-                    continue;
-                else
-                    idf += 1;
-            }
-            
-            idf = log(document_count_ / idf);
 
-            for (auto& [id, freq]: word_to_document_freqs_.at(word)) {
-                document_to_relevance[id] += freq*idf;
-            }
-            idf = 0;
-        }
+        vector<Document> matched_documents;
+        map<int, double> document_to_relevance = CalculateTF_IDF(query_words);
+
         for (const auto& word : query_words.minus_words) {
-            if(word_to_document_freqs_.count(word))
+            if (word_to_document_freqs_.count(word))
             {
-                 for (auto& [id, freq]: word_to_document_freqs_.at(word)){
+                for (auto& [id, freq] : word_to_document_freqs_.at(word)) {
                     document_to_relevance.erase(id);
                 }
             }
         }
 
-        for(const auto& [id, rel] : document_to_relevance)
+        for (const auto& [id, rel] : document_to_relevance)
         {
-            matched_documents.push_back({id, rel});
+            matched_documents.push_back({ id, rel });
         }
 
         return matched_documents;
     }
+
+    // Вынес в отдельный метод
+    map<int, double> CalculateTF_IDF(const Query& query_words) const {
+
+        map<int, double> document_to_relevance;
+        double idf = 0;
+
+        for (const auto& word : query_words.plus_words) {
+            if (!word_to_document_freqs_.count(word))
+            {
+                continue;
+            }
+            for (const auto& [doc, freq] : word_to_document_freqs_.at(word)) { // здесь вы написали "Используйте метод size() для подсчета количества слов", выделив эту строку
+                if (freq == 0) // я не очень понял, как предполагается его здесь использовать и зачем? Я же здесь считаю не количество слов, а количество документов, которые 
+                    continue;  // содержат это слово 
+                else
+                    idf += 1;
+            }
+
+            idf = log(document_count_ / idf);
+
+            for (auto& [id, freq] : word_to_document_freqs_.at(word)) {
+                document_to_relevance[id] += freq * idf;
+            }
+            idf = 0;
+        }
+        return document_to_relevance;
+    }
+
 };
 
 SearchServer CreateSearchServer() {
@@ -182,6 +194,6 @@ int main() {
     const string query = ReadLine();
     for (const auto& [document_id, relevance] : search_server.FindTopDocuments(query)) {
         cout << "{ document_id = "s << document_id << ", "
-             << "relevance = "s << relevance << " }"s << endl;
+            << "relevance = "s << relevance << " }"s << endl;
     }
 }
