@@ -164,12 +164,7 @@ private:
         
         double idf = 0;
 
-        for(const auto& doc: word_to_document_freqs_.at(word)) {
-            if(doc.second == 0)
-                continue;
-            else
-                idf += 1;
-        }
+        idf = word_to_document_freqs_.at(word).size();
             
         idf = log(document_count_ / idf); // Локальную idf для этой функции можно было бы оставить int и возвращать результат логарифма,
         return idf;                       // но я сомневался в результате деления. Мог получиться целочисленный, поэтому оставил так
