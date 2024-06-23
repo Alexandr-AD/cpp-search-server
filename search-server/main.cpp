@@ -47,6 +47,10 @@ vector<string> SplitIntoWords(const string& text) {
 }
 
 struct Document {
+    Document() : id(0), relevance(0.0), rating(0)
+    {}
+    Document(int p_id, double p_relevance, int p_rating) : id(p_id), relevance(p_relevance), rating(p_rating)
+    {}
     int id;
     double relevance;
     int rating;
@@ -61,12 +65,23 @@ enum class DocumentStatus {
 
 class SearchServer {
 public:
+    SearchServer() = default;
+    SearchServer(const string& stop_string) {
+        auto tmp = SplitIntoWords(stop_string);
+        stop_words_ = set(tmp.begin(), tmp.end());
+    }
+
+    template<typename T>
+    SearchServer(const T& t) {
+        for(const string& word: t) {
+            stop_words_.insert(word);
+        }
+    }
     void SetStopWords(const string& text) {
         for (const string& word : SplitIntoWords(text)) {
             stop_words_.insert(word);
         }
     }
-
     void AddDocument(int document_id, const string& document, DocumentStatus status,
                      const vector<int>& ratings) {
         const vector<string> words = SplitIntoWordsNoStop(document);
@@ -242,23 +257,33 @@ void PrintDocument(const Document& document) {
          << " }"s << endl;
 }
 int main() {
-    SearchServer search_server;
-    search_server.SetStopWords("и в на"s);
-    search_server.AddDocument(0, "белый кот и модный ошейник"s,        DocumentStatus::ACTUAL, {8, -3});
-    search_server.AddDocument(1, "пушистый кот пушистый хвост"s,       DocumentStatus::ACTUAL, {7, 2, 7});
-    search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
-    search_server.AddDocument(3, "ухоженный скворец евгений"s,         DocumentStatus::BANNED, {9});
-    cout << "ACTUAL by default:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s)) {
-        PrintDocument(document);
-    }
-    cout << "BANNED:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::BANNED)) {
-        PrintDocument(document);
-    }
-    cout << "Even ids:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; })) {
-        PrintDocument(document);
-    }
+    // SearchServer search_server;
+    // search_server.SetStopWords("и в на"s);
+    // search_server.AddDocument(0, "белый кот и модный ошейник"s,        DocumentStatus::ACTUAL, {8, -3});
+    // search_server.AddDocument(1, "пушистый кот пушистый хвост"s,       DocumentStatus::ACTUAL, {7, 2, 7});
+    // search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
+    // search_server.AddDocument(3, "ухоженный скворец евгений"s,         DocumentStatus::BANNED, {9});
+    // cout << "ACTUAL by default:"s << endl;
+    // for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s)) {
+    //     PrintDocument(document);
+    // }
+    // cout << "BANNED:"s << endl;
+    // for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::BANNED)) {
+    //     PrintDocument(document);
+    // }
+    // cout << "Even ids:"s << endl;
+    // for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; })) {
+    //     PrintDocument(document);
+    // }
+
+    // инициализируем поисковую систему, передавая стоп-слова в контейнере vector
+    const vector<string> stop_words_vector = {"и"s, "в"s, "на"s, ""s, "в"s};
+    SearchServer search_server1(stop_words_vector);
+    // инициализируем поисковую систему передавая стоп-слова в контейнере set
+    const set<string> stop_words_set = {"и"s, "в"s, "на"s};
+    SearchServer search_server2(stop_words_set);
+    // инициализируем поисковую систему строкой со стоп-словами, разделёнными пробелами
+    SearchServer search_server3("  и  в на   "s); 
+
     return 0;
 }
