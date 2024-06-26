@@ -71,8 +71,8 @@ public:
     inline static constexpr int INVALID_DOCUMENT_ID = -1;
 
     SearchServer() = default;
-    explicit SearchServer(const string& stop_string) {
-        auto tmp = SplitIntoWords(stop_string);
+    explicit SearchServer(const string& stop_string) { //почему-то если использую здесь переопределенный конструктор, то неправильно сортируются документы 
+        auto tmp = SplitIntoWords(stop_string); // как быть? Я не понимаю
         for(const string& word: tmp) {
             if(!IsValidWord(word)) {
                 throw invalid_argument("The stop word contains forbidden characters");
@@ -92,10 +92,6 @@ public:
     }
 
      int GetDocumentId(int index) const {
-        if(index < 0 || static_cast<size_t>(index) >= index_to_id_.size()) {
-            // return INVALID_DOCUMENT_ID;
-            throw out_of_range("Document index out of range");
-        }
         return index_to_id_.at(index);
     }
 
@@ -134,11 +130,7 @@ public:
     }
     template <typename Predicate>
     vector<Document> FindTopDocuments(const string& raw_query, Predicate pred) const {
-        // const Query query = ParseQuery(raw_query);
-        Query query;
-        if(!ParseQuery(raw_query, query)) {
-            throw invalid_argument("The query contains the following characters");
-        }
+        const Query query = ParseQuery(raw_query);
         auto matched_documents = FindAllDocuments(query, pred);
 
         sort(matched_documents.begin(), matched_documents.end(),
@@ -161,9 +153,7 @@ public:
         });
     }
     vector<Document> FindTopDocuments(const string& raw_query) const {
-        return FindTopDocuments(raw_query, [] (int document_id, DocumentStatus status_, int rating) {
-            return status_ == DocumentStatus::ACTUAL;
-        });
+        return FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
     }
 
     int GetDocumentCount() const {
@@ -171,11 +161,7 @@ public:
     }
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const {
-        // const Query query = ParseQuery(raw_query);
-        Query query;
-        if( !ParseQuery(raw_query, query) ) {
-            throw invalid_argument("The query contains the following characters");
-        }
+        const Query query = ParseQuery(raw_query);
         vector<string> matched_words;
         for (const string& word : query.plus_words) {
             if (word_to_document_freqs_.count(word) == 0) {
@@ -239,6 +225,22 @@ private:
     };
 
     QueryWord ParseQueryWord(string text) const {
+        if(!IsValidWord(text)) {  //если запрещённые символы
+                throw invalid_argument("The query contains the following characters");
+            }
+            for(int i = 0; static_cast<size_t>(i) < text.size(); ++i) {
+                if(static_cast<int>(text.size()) == 1 && text[i] == '-') {  //если всё слово "-"
+                    throw invalid_argument("The query contains the following characters \"-\"");
+                }
+                if(text[i] == '-') {
+                    if( static_cast<size_t>(i) != (text.size()-1) ) { 
+                        if( text[i+1] == '-') {   //если два минуса подряд
+                            throw invalid_argument("The query contains the following characters \"--\"");
+                        }
+                    }
+                }
+            }
+
         bool is_minus = false;
         // Word shouldn't be empty
         if (text[0] == '-') {
@@ -253,24 +255,10 @@ private:
         set<string> minus_words;
     };
 
-    bool ParseQuery(const string& text, Query& query) const {
-        // Query query;
+    Query ParseQuery(const string& text) const {
+        Query query;
         for (const string& word : SplitIntoWords(text)) {
-            if(!IsValidWord(word)) {  //если запрещённые символы
-                return false;
-            }
-            for(int i = 0; static_cast<size_t>(i) < word.size(); ++i) {
-                if(static_cast<int>(word.size()) == 1 && word[i] == '-') {  //если всё слово "-"
-                    return false;
-                }
-                if(word[i] == '-') {
-                    if( static_cast<size_t>(i) != (word.size()-1) ) { 
-                        if( word[i+1] == '-') {   //если два минуса подряд
-                            return false;
-                        }
-                    }
-                }
-            }
+            
             const QueryWord query_word = ParseQueryWord(word);
             if (!query_word.is_stop) {
                 if (query_word.is_minus) {
@@ -280,7 +268,7 @@ private:
                 }
             }
         }
-        return true;
+        return query;
     }
 
     // Existence required
@@ -335,24 +323,23 @@ void PrintDocument(const Document& document) {
          << "rating = "s << document.rating << " }"s << endl;
 }
 int main() {
-    // SearchServer search_server("и в на"s);
-    // // Явно игнорируем результат метода AddDocument, чтобы избежать предупреждения
-    // // о неиспользуемом результате его вызова
-    // (void) search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, {7, 2, 7});
-    // if (!search_server.AddDocument(1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, {1, 2})) {
-    //     cout << "Документ не был добавлен, так как его id совпадает с уже имеющимся"s << endl;
-    // }
-    // if (!search_server.AddDocument(-1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, {1, 2})) {
-    //     cout << "Документ не был добавлен, так как его id отрицательный"s << endl;
-    // }
-    // if (!search_server.AddDocument(3, "большой пёс скво\x12рец"s, DocumentStatus::ACTUAL, {1, 3, 2})) {
-    //     cout << "Документ не был добавлен, так как содержит спецсимволы"s << endl;
-    // }
-    // if (const auto documents = search_server.FindTopDocuments("--пушистый"s)) {
-    //     for (const Document& document : *documents) {
-    //         PrintDocument(document);
-    //     }
-    // } else {
-    //     cout << "Ошибка в поисковом запросе"s << endl;
-    // }
+    SearchServer search_server("и в на"s);
+
+    search_server.AddDocument(0, "белый кот и модный ошейник"s, DocumentStatus::ACTUAL, { 8, -3 });
+    search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
+    search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
+    search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
+    cout << "ACTUAL by default:"s << endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s)) {
+        PrintDocument(document);
+    }
+    cout << "BANNED:"s << endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::BANNED)) {
+        PrintDocument(document);
+    }
+    cout << "Even ids:"s << endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; })) {
+        PrintDocument(document);
+    }
+    return 0;
 }
