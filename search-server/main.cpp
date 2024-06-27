@@ -71,14 +71,8 @@ public:
     inline static constexpr int INVALID_DOCUMENT_ID = -1;
 
     SearchServer() = default;
-    explicit SearchServer(const string& stop_string) { //почему-то если использую здесь переопределенный конструктор, то неправильно сортируются документы 
-        auto tmp = SplitIntoWords(stop_string); // как быть? Я не понимаю
-        for(const string& word: tmp) {
-            if(!IsValidWord(word)) {
-                throw invalid_argument("The stop word contains forbidden characters");
-            }
-        }
-        stop_words_ = set(tmp.begin(), tmp.end());
+    explicit SearchServer(const string& stop_string) : SearchServer(SplitIntoWords(stop_string))
+    { 
     }
 
     template<typename T>
@@ -225,28 +219,21 @@ private:
     };
 
     QueryWord ParseQueryWord(string text) const {
-        if(!IsValidWord(text)) {  //если запрещённые символы
-                throw invalid_argument("The query contains the following characters");
-            }
-            for(int i = 0; static_cast<size_t>(i) < text.size(); ++i) {
-                if(static_cast<int>(text.size()) == 1 && text[i] == '-') {  //если всё слово "-"
-                    throw invalid_argument("The query contains the following characters \"-\"");
-                }
-                if(text[i] == '-') {
-                    if( static_cast<size_t>(i) != (text.size()-1) ) { 
-                        if( text[i+1] == '-') {   //если два минуса подряд
-                            throw invalid_argument("The query contains the following characters \"--\"");
-                        }
-                    }
-                }
-            }
-
         bool is_minus = false;
         // Word shouldn't be empty
         if (text[0] == '-') {
             is_minus = true;
             text = text.substr(1);
         }
+        if (text[0] == '-') { //если два минуса подряд
+            throw invalid_argument("The query contains the \"--\"");
+        }
+        if(text.empty()) {  //если всё слово "-"
+            throw invalid_argument("The query contains the word \"-\"");
+        }
+        if(!IsValidWord(text)) {  //если запрещённые символы
+                throw invalid_argument("The query contains forbidden characters");
+            }
         return {text, is_minus, IsStopWord(text)};
     }
 
